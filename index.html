@@ -226,9 +226,12 @@ function renderFormCard(item, equipmentOptions) {
   }
 
   var rokuyoBadge = item.rokuyo ? ' <span class="rokuyo ' + item.rokuyo.cls + '">' + escapeHtml(item.rokuyo.name) + '</span>' : '';
+  // 「邸名」列に既に「様邸」が含まれているデータとそうでないデータが混在しているため、
+  // 末尾が「様邸」で終わっていない場合だけ補う（二重表示「様邸様邸」を防ぐ）
+  var displayName = /様邸$/.test(item.name) ? item.name : (item.name + '様邸');
 
   var html = '<div class="card" data-card-id="' + safeId + '">';
-  html += '<div class="q-label"><span>' + escapeHtml(item.name) + '様邸</span><span class="site-date">' + escapeHtml(item.scheduledDateLabel) + rokuyoBadge + '</span></div>';
+  html += '<div class="q-label"><span>' + escapeHtml(displayName) + '</span><span class="site-date">' + escapeHtml(item.scheduledDateLabel) + rokuyoBadge + '</span></div>';
   if (item.address) html += '<p class="site-address">' + escapeHtml(item.address) + (item.personInCharge ? ' ・ 担当（' + escapeHtml(item.personInCharge) + '様）' : '') + '</p>';
   if (resp) {
     html += '<div class="answered-badge">✅ 回答済み（' + escapeHtml(resp.respondedAt) + '）・内容はいつでも修正して再送信できます</div>';
@@ -408,7 +411,7 @@ function boot() {
       }
       if (validCount === 1) {
         var only = data.items.filter(function (it) { return it.found; })[0];
-        document.title = only.name + '様邸 上棟確認 | usin';
+        document.title = (/様邸$/.test(only.name) ? only.name : (only.name + '様邸')) + ' 上棟確認 | usin';
       }
       var cardsHtml = data.items.map(function (item) { return renderFormCard(item, data.equipmentOptions); }).join('');
       document.getElementById('content').innerHTML = header + cardsHtml +
