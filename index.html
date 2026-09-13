@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="ja">
 <head>
@@ -124,6 +125,26 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+// 「2026年9月12日(土)」「2026-09-12」のような表記から日付を緩く読み取る（GAS側parseDateLoose_と同じロジック）
+var WEEKDAY_JA = ['日', '月', '火', '水', '木', '金', '土'];
+function parseDateLoose(s) {
+  if (!s) return null;
+  var str = String(s);
+  var m = str.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  if (!m) m = str.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (!m) return null;
+  var d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return isNaN(d.getTime()) ? null : d;
+}
+// 日付表記に曜日が付いていない場合だけ「（曜）」を補う（既に付いているデータは二重にしない）
+function withWeekday(label) {
+  if (!label) return label;
+  if (/[（(][日月火水木金土][）)]/.test(label)) return label;
+  var d = parseDateLoose(label);
+  if (!d) return label;
+  return label + '（' + WEEKDAY_JA[d.getDay()] + '）';
+}
+
 // ==================== SVGグラフ描画（GAS側のロジックをそのまま移植） ====================
 function renderBarSeriesSvg(series, opts) {
   opts = opts || {};
@@ -231,8 +252,11 @@ function renderFormCard(item, equipmentOptions) {
   var displayName = /様邸$/.test(item.name) ? item.name : (item.name + '様邸');
 
   var html = '<div class="card" data-card-id="' + safeId + '">';
-  html += '<div class="q-label"><span>' + escapeHtml(displayName) + '</span><span class="site-date">' + escapeHtml(item.scheduledDateLabel) + rokuyoBadge + '</span></div>';
-  if (item.address) html += '<p class="site-address">' + escapeHtml(item.address) + (item.personInCharge ? ' ・ 担当（' + escapeHtml(item.personInCharge) + '様）' : '') + '</p>';
+  html += '<div class="q-label"><span>' + escapeHtml(displayName) + '</span><span class="site-date">' + escapeHtml(withWeekday(item.scheduledDateLabel)) + rokuyoBadge + '</span></div>';
+  // 担当者名も「邸名」と同じく、データ側に既に「様」が含まれている場合とそうでない場合が混在しているため、
+  // 末尾が「様」で終わっていない場合だけ補う（「様様」の二重表示を防ぐ）
+  var personDisplay = item.personInCharge ? (/様$/.test(item.personInCharge) ? item.personInCharge : (item.personInCharge + '様')) : '';
+  if (item.address) html += '<p class="site-address">' + escapeHtml(item.address) + (personDisplay ? ' ・ 担当（' + escapeHtml(personDisplay) + '）' : '') + '</p>';
   if (resp) {
     html += '<div class="answered-badge">✅ 回答済み（' + escapeHtml(resp.respondedAt) + '）・内容はいつでも修正して再送信できます</div>';
   }
@@ -267,7 +291,7 @@ function renderFormCard(item, equipmentOptions) {
   }
 
   html += '<div class="subcard"><div class="q-label"><span>予定日は変更ありませんか？</span><span class="q-num">Q1</span></div>' +
-    '<div class="big-date">' + escapeHtml(item.scheduledDateLabel) + rokuyoBadge + '</div>' +
+    '<div class="big-date">' + escapeHtml(withWeekday(item.scheduledDateLabel)) + rokuyoBadge + '</div>' +
     '<div class="toggle-row">' + toggleBtnHtml(safeId, 'onSchedule', true, '予定通りです', sel.onSchedule) + toggleBtnHtml(safeId, 'onSchedule', false, '変更があります', sel.onSchedule) + '</div>' +
     '<div class="reveal' + (sel.onSchedule === false ? ' open' : '') + '" data-reveal-for="' + safeId + '__onSchedule"><label class="field-label">正しい上棟予定日</label>' +
     '<input type="date" data-id="' + safeId + '" data-field="revisedDate" value="' + escapeHtml(pre.revisedDate) + '"></div></div>';
