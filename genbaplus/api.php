@@ -33,6 +33,10 @@ if (isset($_GET['log'])) {
   out(['ok' => true, 'log' => $lines]);
 }
 
+if (isset($_GET['env'])) {
+  out(['ok' => true, 'php' => PHP_VERSION, 'binaries' => glob('/usr/bin/php*') ?: [], 'tz' => date_default_timezone_get(), 'now' => date('Y-m-d H:i:s')]);
+}
+
 if (isset($_GET['raw'])) {
   $n = preg_replace('/[^A-Za-z0-9_]/', '', (string)$_GET['raw']);
   $f = "$dir/raw/$n.json";
