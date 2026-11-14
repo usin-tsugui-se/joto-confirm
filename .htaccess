@@ -1,0 +1,3 @@
+# 親フォルダ（u-sin.jp の WordPress）の転送ルールをこのフォルダでは使わない。
+# これが無いと PHP ファイルが「10 internal redirects」で 500 エラーになる（2026-11-14 確認）。
+RewriteEngine Off
