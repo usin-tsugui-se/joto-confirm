@@ -323,8 +323,41 @@ function gp_run($codes = null) {
       if ($prev) { $prev['last_error'] = date('Y-m-d H:i:s') . ' ' . $e->getMessage(); file_put_contents("$dir/$code.json", json_encode($prev, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX); }
     }
   }
-  gp_build_latest();
+  $all = gp_build_latest();
+  gp_push_sheet($all, $cfg);
   return $summary;
+}
+
+/**
+ * 取得結果を予定表（APP＿AI管理_予定一覧）の Apps Script へ送り、「現場Plus」タブを更新させる（2026-11-14 追加）。
+ * Google から XServer を読みに行くと 501 で断られるため、XServer から Google へ送る向きにした。
+ * 受け側は doPost（コード.gs）→ gp_receive_（現場Plus.gs）。認証は config.php の api_key
+ * （Apps Script のスクリプトプロパティ GENBAPLUS_KEY と同じ値）。
+ * 送り先は config.php の sheet_push_url があればそれ、無ければ下の既定値。失敗しても取得結果には影響しない。
+ */
+const GP_SHEET_PUSH_URL = 'https://script.google.com/macros/s/AKfycbxwTQ-BrNuZS9KSYYOrVY889a9NuLgoXr2yyuhrfKI6bOPARRldPWKNcujs2-cL0En3Iw/exec';
+
+function gp_push_sheet($all, $cfg) {
+  $url = !empty($cfg['sheet_push_url']) ? $cfg['sheet_push_url'] : GP_SHEET_PUSH_URL;
+  if (!$url || (isset($cfg['sheet_push']) && !$cfg['sheet_push'])) return null;
+  $body = json_encode(['genbaplus_key' => (string)$cfg['api_key'], 'genbaplus' => $all], JSON_UNESCAPED_UNICODE);
+  $ch = curl_init($url);
+  curl_setopt_array($ch, [
+    CURLOPT_POST => true,
+    CURLOPT_POSTFIELDS => $body,
+    CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_FOLLOWLOCATION => true,   // Apps Script は 302 → googleusercontent で結果を返す
+    CURLOPT_TIMEOUT => 120,
+    CURLOPT_CONNECTTIMEOUT => 20,
+  ]);
+  $res = curl_exec($ch);
+  $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+  $err = curl_error($ch);
+  curl_close($ch);
+  $msg = $err ? ('失敗 ' . $err) : ('HTTP ' . $code . ' ' . mb_substr(preg_replace('/\s+/', ' ', (string)$res), 0, 200));
+  gp_log('予定表へ送信: ' . $msg);
+  return $msg;
 }
 
 /** 4社分をまとめた latest.json を作る */
