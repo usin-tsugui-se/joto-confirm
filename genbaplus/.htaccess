@@ -1,0 +1,5 @@
+# api.php 以外は Web から開けないようにする（プログラム本体は cron から直接実行する）
+Require all denied
+<Files "api.php">
+  Require all granted
+</Files>
